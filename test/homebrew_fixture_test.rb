@@ -16,12 +16,13 @@ class HomebrewFixtureTest < Minitest::Test
       assert status.success?, out + err
       record = JSON.parse(File.read(File.join(root, "FIXTURE.json")))
       assert_equal false, record.fetch("native_image_qualified")
-      assert_equal false, record.fetch("real_authentication_qualified")
+      assert_equal false, record.fetch("public_remote_download_qualified")
       production = File.read(File.join(root, "generated-production-formula.rb"))
       patched = File.read(File.join(root, "tap/Formula/qilt.rb"))
-      refute_includes production, "SYNTHETIC CI TRANSPORT"
-      assert_includes patched, "SYNTHETIC CI TRANSPORT"
-      assert patched.start_with?(production)
+      replacements = record.fetch("url_replacements")
+      assert_equal 2, replacements.length
+      assert replacements.values.all? { |value| value.start_with?('"file:///') }
+      assert_equal replacements.reduce(production) { |text, (source, target)| text.sub(source, target) }, patched
       assert_equal record.fetch("production_formula_sha256"), Digest::SHA256.hexdigest(production)
       stub = File.read(File.join(root, "tree/libexec/qilt/0.0.0/qilt"))
       assert_includes stub, "Fixture only: no native verifier"

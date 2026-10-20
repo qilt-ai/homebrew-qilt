@@ -34,6 +34,7 @@ module QiltRelease
                                     name.split("/", -1).none? { |part| ["", ".", ".."].include?(part) }
         refuse(:duplicate_member) if expected.key?(name)
         refuse(:member_mode) unless row["mode"].is_a?(String) && /\A[0-7]{4}\z/.match?(row["mode"])
+        refuse(:member_mode) if Integer(row["mode"], 8) > 0o777
         refuse(:member_kind) unless %w[file dir symlink].include?(row["kind"])
         expected[name] = row
       end

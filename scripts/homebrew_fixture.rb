@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
 # Generate an inert, explicitly synthetic tap for the disposable macOS runner.
-# This does not qualify a native image, a real credential or the public endpoint.
+# This does not qualify a native image or the public download endpoint.
 require "digest"
 require "fileutils"
 require "find"
 require "json"
 require "pathname"
+require "uri"
 require_relative "render_formula"
 
 root = Pathname(ARGV.fetch(0)).expand_path
@@ -52,41 +53,24 @@ manifest.write(JSON.generate("schema" => "qilt.native-manifest.v1", "run" => { "
 config = { "version" => "0.0.0", "tarball_sha256" => Digest::SHA256.file(archive).hexdigest,
            "manifest_sha256" => Digest::SHA256.file(manifest).hexdigest, "macos_minimum" => "11.0" }
 (root/"candidate.json").write(JSON.generate(config))
-metadata = { "tag_name" => "v0.0.0", "draft" => false,
-             "assets" => [archive, manifest].each_with_index.map do |file, index|
-               { "id" => index + 1, "name" => file.basename.to_s, "size" => file.size }
-             end }
-(root/"release.json").write(JSON.generate(metadata))
 tap = root/"tap"
 (tap/"Formula").mkpath
 production_formula = QiltFormula.render(config)
 (root/"generated-production-formula.rb").write(production_formula)
 
-# Only this fixture copy replaces the transport. The generated production
-# formula is retained separately and has no endpoint override or test mode.
-bridge = <<~RUBY
-  # SYNTHETIC CI TRANSPORT — never a release formula.
-  module QiltRelease
-    class HTTPS
-      def call(uri, headers)
-        raise "fixture credential not received at fetch time" unless headers["Authorization"] == "Bearer synthetic-fixture-token"
-        root = Pathname(#{root.to_s.dump})
-        name = case uri.path
-               when "/repos/qilt-ai/qilt-releases/releases/tags/v0.0.0" then "release.json"
-               when "/repos/qilt-ai/qilt-releases/releases/assets/1" then "qilt-0.0.0-macos-arm64.tar.gz"
-               when "/repos/qilt-ai/qilt-releases/releases/assets/2" then "qilt-0.0.0-macos-arm64.native-manifest.json"
-               else raise "unexpected fixture request"
-               end
-        response = Struct.new(:code, :body) do
-          def [](key); nil; end
-          def read_body; yield body; end
-        end.new("200", (root/name).binread)
-        yield response
-      end
-    end
-  end
-RUBY
-(tap/"Formula/qilt.rb").write(production_formula + "\n" + bridge)
+# Only this fixture copy substitutes local URLs. Homebrew's standard download,
+# checksum and resource-stage paths remain in use, with no custom transport.
+replacements = {}
+{
+  '"https://github.com/qilt-ai/qilt-releases/releases/download/v#{RELEASE_VERSION}/qilt-#{RELEASE_VERSION}-macos-arm64.tar.gz"' => archive,
+  '"https://github.com/qilt-ai/qilt-releases/releases/download/v#{RELEASE_VERSION}/qilt-#{RELEASE_VERSION}-macos-arm64.native-manifest.json"' => manifest
+}.each do |source, file|
+  abort "public asset URL changed" unless production_formula.scan(Regexp.new(Regexp.escape(source))).length == 1
+  encoded = file.to_s.split("/").map { |part| URI.encode_www_form_component(part).gsub("+", "%20") }.join("/")
+  replacements[source] = ("file://" + encoded).dump
+end
+fixture_formula = replacements.reduce(production_formula) { |text, (source, target)| text.sub(source, target) }
+(tap/"Formula/qilt.rb").write(fixture_formula)
 commands = [
   ["git", "-C", tap.to_s, "init", "-b", "main"],
   ["git", "-C", tap.to_s, "add", "Formula/qilt.rb"],
@@ -98,7 +82,8 @@ git_env.merge!("GIT_CONFIG_GLOBAL" => File::NULL, "GIT_CONFIG_NOSYSTEM" => "1")
 commands.each { |command| abort "fixture git failed" unless system(git_env, *command, out: File::NULL) }
 (root/"FIXTURE.json").write(JSON.pretty_generate(
   "kind" => "synthetic-homebrew-integration", "native_image_qualified" => false,
-  "real_authentication_qualified" => false, "candidate" => config,
+  "public_remote_download_qualified" => false, "candidate" => config,
+  "url_replacements" => replacements,
   "production_formula_sha256" => Digest::SHA256.hexdigest(production_formula),
   "fixture_formula_sha256" => Digest::SHA256.file(tap/"Formula/qilt.rb").hexdigest
 ) + "\n")

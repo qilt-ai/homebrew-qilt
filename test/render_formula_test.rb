@@ -30,7 +30,7 @@ class RenderFormulaTest < Minitest::Test
   end
 
   def test_incomplete_unexpected_or_injecting_metadata_cannot_generate_a_formula
-    inputs = [nil, {}, candidate.merge("token" => "synthetic-credential"),
+    inputs = [nil, {}, candidate.merge("unexpected" => "extra"),
               candidate.merge("version" => '0.0.1"; abort "injected'),
               candidate.merge("version" => "0.0.1-rc.1"),
               candidate.merge("manifest_sha256" => nil),

@@ -37,8 +37,8 @@ abort "fixture unexpectedly claimed native verification" unless verification_sta
                                                                refusal.include?("Fixture only:")
 output.write(JSON.pretty_generate(
   "kind" => "synthetic-homebrew-integration", "fixture_passed" => true,
-  "native_image_qualified" => false, "real_authentication_qualified" => false,
-  "private_remote_tap_qualified" => false, "tap_source" => "local fixture repository",
+  "native_image_qualified" => false, "public_remote_download_qualified" => false,
+  "tap_source" => "local fixture repository", "asset_source" => "local file URLs",
   "keg" => keg.to_s, "installed_fixture_sha256" => Digest::SHA256.file(command).hexdigest,
   "original_fixture_sha256" => Digest::SHA256.hexdigest(expected_bytes),
   "fixture_version_exit" => version_status.exitstatus,

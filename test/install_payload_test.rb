@@ -92,6 +92,17 @@ class InstallPayloadTest < Minitest::Test
     refused(:mode_mismatch) { install }
   end
 
+  def test_special_permission_bits_refuse_and_the_plain_executable_twin_installs
+    command = @members.find { |row| row["path"] == "libexec/qilt/#{V}/qilt" }
+    %w[4755 2755 1755].each do |mode|
+      command["mode"] = mode
+      refused(:member_mode) { install }
+    end
+    command["mode"] = "0755"
+    install
+    assert_equal 0o755, (@prefix/"libexec/qilt/#{V}/qilt").stat.mode & 0o7777
+  end
+
   def test_extra_and_missing_members_refuse
     (@source/"extra").write("unlisted")
     refused(:unlisted_member) { install }

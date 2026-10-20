@@ -10,22 +10,14 @@ class Qilt < Formula
   MACOS_MINIMUM = <%= literal.call(macos_minimum) %>
 
   version RELEASE_VERSION
-  url "#{QiltRelease::PrivateRelease::API}/releases/tags/v#{RELEASE_VERSION}",
-      using: QiltPrivateReleaseDownloadStrategy,
-      qilt_version: RELEASE_VERSION,
-      qilt_asset: "qilt-#{RELEASE_VERSION}-macos-arm64.tar.gz",
-      qilt_sha256: TARBALL_SHA256
+  url "https://github.com/qilt-ai/qilt-releases/releases/download/v#{RELEASE_VERSION}/qilt-#{RELEASE_VERSION}-macos-arm64.tar.gz"
   sha256 TARBALL_SHA256
 
   depends_on :macos
   depends_on arch: :arm64
 
   resource "native-manifest" do
-    url "#{QiltRelease::PrivateRelease::API}/releases/tags/v#{RELEASE_VERSION}",
-        using: QiltPrivateReleaseDownloadStrategy,
-        qilt_version: RELEASE_VERSION,
-        qilt_asset: "qilt-#{RELEASE_VERSION}-macos-arm64.native-manifest.json",
-        qilt_sha256: MANIFEST_SHA256
+    url "https://github.com/qilt-ai/qilt-releases/releases/download/v#{RELEASE_VERSION}/qilt-#{RELEASE_VERSION}-macos-arm64.native-manifest.json"
     sha256 MANIFEST_SHA256
   end
 

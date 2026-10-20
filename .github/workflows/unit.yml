@@ -11,8 +11,6 @@ jobs:
   controls:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      HOMEBREW_QILT_TOKEN: ""
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -24,4 +22,3 @@ jobs:
         run: |
           ruby --version
           ruby -Itest -e 'Dir["test/*_test.rb"].sort.each { |file| require File.expand_path(file) }'
-          ruby -c lib/qilt_private_download_strategy.rb

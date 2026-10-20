@@ -30,17 +30,7 @@ module QiltFormula
     end
     # An installed formula may be read from K/.brew, outside the tap. Embed the
     # tested helpers so that it never depends on a relative tap file there.
-    helpers = %w[lib/qilt/private_release.rb lib/qilt/install_payload.rb
-                 lib/qilt_private_download_strategy.rb].map do |name|
-      source = (ROOT/name).read
-      if name.end_with?("qilt_private_download_strategy.rb")
-        line = "require_relative \"qilt/private_release\"\n"
-        raise "helper import changed" unless source.scan(line).length == 1
-
-        source = source.sub(line, "")
-      end
-      source
-    end.join("\n")
+    helpers = (ROOT/"lib/qilt/install_payload.rb").read
     literal = ->(value) { value.dump }
     ERB.new((ROOT/"templates/qilt.rb.erb").read, trim_mode: "-").result(binding)
   end
