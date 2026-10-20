@@ -11,10 +11,12 @@ This checkout prepares a formula for the compiled macOS arm64 release. No candid
 Generate the single-file formula from the release record:
 
 ```sh
-ruby scripts/render_formula.rb CANDIDATE.json Formula/qilt.rb
+ruby scripts/prepare_candidate.rb RELEASE_ASSETS PUBLIC_VERSION NEW_OUTPUT
 ```
 
-`CANDIDATE.json` has exactly `version`, `tarball_sha256`, `manifest_sha256` and `macos_minimum`. The digests come from the release's SHA256SUMS; the floor comes from that candidate's native manifest. Generation embeds the tested helpers so Homebrew can later read the formula from its installed `.brew` directory.
+The preparation step reads the publisher's four assets, verifies every asset against `SHA256SUMS`, checks the manifest's version and clearance results, and uses its measured `floor.built_for`. It produces `candidate.json`, `Formula/qilt.rb` and `PREPARATION.json` in a new output directory. It neither extracts nor executes the payload. The caller must first bind those assets to the cleared release record; consistent checksums alone do not establish their origin.
+
+The lower-level renderer remains `ruby scripts/render_formula.rb CANDIDATE.json Formula/qilt.rb`. `CANDIDATE.json` has exactly `version`, `tarball_sha256`, `manifest_sha256` and `macos_minimum`. Generation embeds the tested helpers so Homebrew can later read the formula from its installed `.brew` directory. Across candidate configurations, only four constant definitions change; all executable helper and installation code remains identical.
 
 The downloader reads the installer's own `HOMEBREW_QILT_TOKEN` at fetch time. That account needs its own read grant to the private release repository. It uses the GitHub release API, verifies the formula's pinned checksum, never forwards authorization on a redirect, and emits fixed errors without response bodies or signed URLs. No publishing credential is used for a tester's download.
 
@@ -40,3 +42,5 @@ ruby -Itest -e 'Dir["test/*_test.rb"].sort.each { |file| require File.expand_pat
 These tests do not run Homebrew, execute a native payload, read an actual credential or make a network request. Actual Homebrew trust, relocation, signatures, authenticated download and first-run qualification must run on the disposable macOS runner and the qualified candidate. They are not established by these unit tests.
 
 The `Homebrew fixture` workflow is requested once per source head, after its ordinary controls pass, by adding the PR label `fixture:<full-head-sha>`. It installs a separate local fixture tap on a disposable macOS arm64 runner with tap trust required. The fixture uses the generated formula with a clearly marked transport replacement and an inert shell payload. It records trust before/after the fully qualified install, installed bytes and modes, the bin link and external binding record. Its result explicitly denies native-image, real-authentication and private-remote-tap qualification. The fixture's `doctor --installation` exits 64, so it cannot be mistaken for N-2's successful native verifier.
+
+For the initial hand-off, the planned clean-Mac acceptance pass performs the first real private-tap and tester-scoped download qualification, including both install and native-verifier exits. A private-remote CI leg follows only after its owner supplies a dedicated read credential. The publishing credential is never a tester or CI-read credential.

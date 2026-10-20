@@ -50,4 +50,15 @@ class RenderFormulaTest < Minitest::Test
       assert_equal digest, Digest::SHA256.file(output).hexdigest
     end
   end
+
+  def test_late_candidate_update_changes_only_the_four_constant_values
+    other = candidate.merge("version" => "1.2.3", "tarball_sha256" => "c" * 64,
+                            "manifest_sha256" => "d" * 64, "macos_minimum" => "27.1")
+    before, after = [candidate, other].map { |config| QiltFormula.render(config).lines }
+    assert_equal before.length, after.length
+    changes = before.zip(after).reject { |a, b| a == b }
+    assert_equal 4, changes.length
+    assert_equal %w[RELEASE_VERSION TARBALL_SHA256 MANIFEST_SHA256 MACOS_MINIMUM],
+                 changes.map { |a, _| a.strip.split(" = ").first }
+  end
 end
