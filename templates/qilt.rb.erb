@@ -1,0 +1,52 @@
+<%= helpers %>
+
+# Generated from the candidate's release pins; no unpinned formula is shipped.
+class Qilt < Formula
+  desc "Local agent messaging"
+  homepage "https://github.com/qilt-ai/qilt-releases"
+  RELEASE_VERSION = <%= literal.call(release_version) %>
+  TARBALL_SHA256 = <%= literal.call(tarball_sha256) %>
+  MANIFEST_SHA256 = <%= literal.call(manifest_sha256) %>
+  MACOS_MINIMUM = <%= literal.call(macos_minimum) %>
+
+  version RELEASE_VERSION
+  url "#{QiltRelease::PrivateRelease::API}/releases/tags/v#{RELEASE_VERSION}",
+      using: QiltPrivateReleaseDownloadStrategy,
+      qilt_version: RELEASE_VERSION,
+      qilt_asset: "qilt-#{RELEASE_VERSION}-macos-arm64.tar.gz",
+      qilt_sha256: TARBALL_SHA256
+  sha256 TARBALL_SHA256
+
+  depends_on :macos
+  depends_on arch: :arm64
+
+  resource "native-manifest" do
+    url "#{QiltRelease::PrivateRelease::API}/releases/tags/v#{RELEASE_VERSION}",
+        using: QiltPrivateReleaseDownloadStrategy,
+        qilt_version: RELEASE_VERSION,
+        qilt_asset: "qilt-#{RELEASE_VERSION}-macos-arm64.native-manifest.json",
+        qilt_sha256: MANIFEST_SHA256
+    sha256 MANIFEST_SHA256
+  end
+
+  def install
+    if MacOS.version < MacOSVersion.new(MACOS_MINIMUM)
+      odie "Qilt requires macOS #{MACOS_MINIMUM} or later"
+    end
+    manifest_bytes = nil
+    resource("native-manifest").stage do
+      manifest_bytes = File.binread("qilt-#{RELEASE_VERSION}-macos-arm64.native-manifest.json")
+    end
+    QiltRelease::InstallPayload.install(
+      source: buildpath, prefix: prefix, version: RELEASE_VERSION,
+      manifest_bytes: manifest_bytes, tarball_sha256: TARBALL_SHA256,
+      manifest_sha256: MANIFEST_SHA256
+    )
+  end
+
+  # Homebrew catches post_install exceptions. The qualified installation
+  # sequence runs N-2's verifier after brew returns; no hook is credited as it.
+  test do
+    system bin/"qilt", "--version"
+  end
+end
