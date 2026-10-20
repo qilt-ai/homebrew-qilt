@@ -37,11 +37,16 @@ class Qilt < Formula
     resource("native-manifest").stage do
       manifest_bytes = File.binread("qilt-#{RELEASE_VERSION}-macos-arm64.native-manifest.json")
     end
-    QiltRelease::InstallPayload.install(
-      source: buildpath, prefix: prefix, version: RELEASE_VERSION,
-      manifest_bytes: manifest_bytes, tarball_sha256: TARBALL_SHA256,
-      manifest_sha256: MANIFEST_SHA256
-    )
+    # Formula#stage adds .brew_home to buildpath. Re-stage the checksum-verified
+    # primary resource in a clean directory; do not exempt unlisted members
+    # from the archive manifest check.
+    resource.stage do
+      QiltRelease::InstallPayload.install(
+        source: Pathname.pwd, prefix: prefix, version: RELEASE_VERSION,
+        manifest_bytes: manifest_bytes, tarball_sha256: TARBALL_SHA256,
+        manifest_sha256: MANIFEST_SHA256
+      )
+    end
   end
 
   # Homebrew catches post_install exceptions. The qualified installation

@@ -128,4 +128,20 @@ class InstallPayloadTest < Minitest::Test
                   "size" => 0, "sha256" => Digest::SHA256.hexdigest("") }
     refused(:reserved_member) { install }
   end
+
+  def test_symlinked_keg_components_cannot_redirect_an_install
+    outside = @temp/"outside"
+    outside.mkpath
+    (outside/"canary").write("unchanged")
+    ["", "bin", "libexec", "libexec/qilt"].each do |relative|
+      @prefix = @temp/("keg-" + relative.tr("/", "-"))
+      link = relative.empty? ? @prefix : @prefix/relative
+      link.parent.mkpath
+      File.symlink(outside, link)
+      error = assert_raises(QiltRelease::InstallRefused) { install }
+      assert_includes error.message, "unsafe_keg_component"
+      assert_equal ["canary"], outside.children.map { |p| p.basename.to_s }
+      assert_equal "unchanged", (outside/"canary").read
+    end
+  end
 end

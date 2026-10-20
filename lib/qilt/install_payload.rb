@@ -95,6 +95,11 @@ module QiltRelease
       manifest = JSON.parse(manifest_bytes)
       source, prefix = Pathname(source), Pathname(prefix)
       rows = validate_archive(source, manifest, version)
+      # Refuse before copying anything when an existing keg component would
+      # redirect the payload, exposed command or binding outside this keg.
+      [prefix, prefix/"bin", prefix/"libexec", prefix/"libexec/qilt"].each do |path|
+        refuse(:unsafe_keg_component) if path.symlink? || (path.exist? && !path.directory?)
+      end
       relative = "libexec/qilt/#{version}"
       destination = prefix/relative
       refuse(:existing_payload) if destination.exist? || destination.symlink?
