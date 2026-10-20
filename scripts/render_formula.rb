@@ -41,7 +41,7 @@ module QiltFormula
       end
       source
     end.join("\n")
-    literal = ->(value) { JSON.generate(value) }
+    literal = ->(value) { value.dump }
     ERB.new((ROOT/"templates/qilt.rb.erb").read, trim_mode: "-").result(binding)
   end
 

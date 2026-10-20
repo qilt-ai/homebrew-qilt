@@ -11,5 +11,8 @@
 - Keep native post-install verification as the second command in the qualified
   installation sequence, after Homebrew's relocation.
 
+- Add a separately marked synthetic macOS Homebrew integration fixture, with
+  exact-head dispatch, trust and installed-binding evidence, and explicit limits.
+
 Candidate pins, actual Homebrew qualification and the tap owner's merge are
 still required before this preparation supplies an installable release.

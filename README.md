@@ -38,3 +38,5 @@ ruby -Itest -e 'Dir["test/*_test.rb"].sort.each { |file| require File.expand_pat
 ```
 
 These tests do not run Homebrew, execute a native payload, read an actual credential or make a network request. Actual Homebrew trust, relocation, signatures, authenticated download and first-run qualification must run on the disposable macOS runner and the qualified candidate. They are not established by these unit tests.
+
+The `Homebrew fixture` workflow is requested once per source head, after its ordinary controls pass, by adding the PR label `fixture:<full-head-sha>`. It installs a separate local fixture tap on a disposable macOS arm64 runner with tap trust required. The fixture uses the generated formula with a clearly marked transport replacement and an inert shell payload. It records trust before/after the fully qualified install, installed bytes and modes, the bin link and external binding record. Its result explicitly denies native-image, real-authentication and private-remote-tap qualification. The fixture's `doctor --installation` exits 64, so it cannot be mistaken for N-2's successful native verifier.
