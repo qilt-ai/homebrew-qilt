@@ -20,6 +20,7 @@ class RenderFormulaTest < Minitest::Test
     assert_includes text, 'MACOS_MINIMUM = "26.0"'
     refute_includes text, "require_relative"
     refute_includes text, "<%="
+    assert_equal 1, text.lines.count("  preserve_rpath\n")
     Dir.mktmpdir("qilt-render-test-") do |dir|
       path = File.join(dir, "qilt.rb")
       File.write(path, text)
