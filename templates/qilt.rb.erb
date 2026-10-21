@@ -15,6 +15,7 @@ class Qilt < Formula
 
   depends_on :macos
   depends_on arch: :arm64
+  preserve_rpath
 
   resource "native-manifest" do
     url "https://github.com/qilt-ai/qilt-releases/releases/download/v#{RELEASE_VERSION}/qilt-#{RELEASE_VERSION}-macos-arm64.native-manifest.json"

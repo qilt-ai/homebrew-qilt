@@ -22,16 +22,18 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
-      - name: Prepare inert archive and local asset URLs
+      - name: Prepare synthetic Mach-O archive and local asset URLs
         run: |
           test "$(uname -m)" = arm64
-          ruby scripts/homebrew_fixture.rb "$RUNNER_TEMP/qilt-fixture"
+          ruby scripts/homebrew_fixture.rb "$RUNNER_TEMP/qilt-fixture" --mach-o
           mkdir -p "$RUNNER_TEMP/qilt-evidence"
           cp "$RUNNER_TEMP/qilt-fixture/FIXTURE.json" "$RUNNER_TEMP/qilt-evidence/"
           git rev-parse HEAD > "$RUNNER_TEMP/qilt-evidence/source-head.txt"
           sw_vers > "$RUNNER_TEMP/qilt-evidence/macos.txt"
           brew --version > "$RUNNER_TEMP/qilt-evidence/homebrew.txt"
           git -C "$(brew --repository)" rev-parse HEAD > "$RUNNER_TEMP/qilt-evidence/homebrew-head.txt"
+          cp "$RUNNER_TEMP/qilt-fixture/generated-production-formula.rb" "$RUNNER_TEMP/qilt-evidence/"
+          cp "$RUNNER_TEMP/qilt-fixture/without-preserve-rpath.rb" "$RUNNER_TEMP/qilt-evidence/"
       - name: Measure the fully qualified local tap install
         run: |
           brew tap qilt-ai/qilt "$RUNNER_TEMP/qilt-fixture/tap"
@@ -43,6 +45,18 @@ jobs:
       - name: Verify the installed fixture without crediting native qualification
         run: |
           ruby scripts/verify_homebrew_fixture.rb "$RUNNER_TEMP/qilt-fixture" "$RUNNER_TEMP/qilt-evidence/keg.txt" "$RUNNER_TEMP/qilt-evidence/RESULT.json"
+      - name: Install the same archive without preserve_rpath and require a rewrite
+        run: |
+          brew uninstall qilt-ai/qilt/qilt
+          cp "$RUNNER_TEMP/qilt-fixture/without-preserve-rpath.rb" "$(brew --repository qilt-ai/qilt)/Formula/qilt.rb"
+          brew install qilt-ai/qilt/qilt
+          ruby -rpathname -e 'puts Pathname(ARGV.fetch(0)).realpath' "$(brew --prefix qilt-ai/qilt/qilt)" > "$RUNNER_TEMP/qilt-evidence/control-keg.txt"
+          ruby scripts/verify_homebrew_fixture.rb "$RUNNER_TEMP/qilt-fixture" "$RUNNER_TEMP/qilt-evidence/control-keg.txt" "$RUNNER_TEMP/qilt-evidence/CONTROL.json" rewritten
+          if ruby scripts/verify_homebrew_fixture.rb "$RUNNER_TEMP/qilt-fixture" "$RUNNER_TEMP/qilt-evidence/control-keg.txt" "$RUNNER_TEMP/qilt-evidence/unexpected-pass.json" preserved > "$RUNNER_TEMP/qilt-evidence/control-rejection.txt" 2>&1; then
+            echo "The preservation check accepted the rewritten dylib" >&2
+            exit 1
+          fi
+          grep -F 'fixture image changed: libexec/qilt/0.0.0/libfixture.dylib' "$RUNNER_TEMP/qilt-evidence/control-rejection.txt"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

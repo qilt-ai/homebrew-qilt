@@ -145,9 +145,9 @@ end
 class Qilt < Formula
   desc "Local agent messaging"
   homepage "https://github.com/qilt-ai/qilt-releases"
-  RELEASE_VERSION = "0.1.0"
-  TARBALL_SHA256 = "608b60973b6cb3a842df94365a300595d98283cfafc3bcbf97aa5c97b4964402"
-  MANIFEST_SHA256 = "93a834e5f75fe6aaf57410770d9e6887b4061269c24e3180f90973498e2e8f2f"
+  RELEASE_VERSION = "0.1.1"
+  TARBALL_SHA256 = "37582592114dc30bad0f6dc13409903fdd140c08e940d347df8dddddc0d5d70f"
+  MANIFEST_SHA256 = "8c1edc1c27609effacba77dcca6f49f30e0a335bf2ec306ae08fe2a5e7894684"
   MACOS_MINIMUM = "26.0"
 
   version RELEASE_VERSION
@@ -156,6 +156,7 @@ class Qilt < Formula
 
   depends_on :macos
   depends_on arch: :arm64
+  preserve_rpath
 
   resource "native-manifest" do
     url "https://github.com/qilt-ai/qilt-releases/releases/download/v#{RELEASE_VERSION}/qilt-#{RELEASE_VERSION}-macos-arm64.native-manifest.json"

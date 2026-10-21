@@ -6,11 +6,15 @@ require "digest"
 require "fileutils"
 require "find"
 require "json"
+require "open3"
 require "pathname"
 require "uri"
 require_relative "render_formula"
 
 root = Pathname(ARGV.fetch(0)).expand_path
+abort "usage: homebrew_fixture.rb OUTPUT [--mach-o]" unless ARGV.length == 1 ||
+                                                          (ARGV.length == 2 && ARGV[1] == "--mach-o")
+mach_o = ARGV[1] == "--mach-o"
 abort "fixture destination already exists" if root.exist?
 root.mkpath
 tree = root/"tree"
@@ -29,6 +33,23 @@ SCRIPT
 File.chmod(0o755, payload/"qilt")
 File.symlink("../libexec/qilt/0.0.0/qilt", tree/"bin/qilt")
 (tree/"NOTICES.txt").write("Synthetic fixture; not a release candidate.\n")
+image_record = nil
+if mach_o
+  abort "Mach-O fixture requires macOS" unless RUBY_PLATFORM.include?("darwin")
+  source = root/"fixture.c"
+  source.write("int qilt_fixture_value(void) { return 7; }\n")
+  image = payload/"libfixture.dylib"
+  image_id = "@rpath/libfixture.dylib"
+  abort "fixture compile failed" unless system("/usr/bin/clang", "-dynamiclib", "-arch", "arm64",
+                                               "-Wl,-headerpad_max_install_names", "-Wl,-install_name,#{image_id}",
+                                               "-o", image.to_s, source.to_s)
+  abort "fixture signing failed" unless system("/usr/bin/codesign", "--force", "--sign", "-", image.to_s)
+  abort "fixture signature invalid" unless system("/usr/bin/codesign", "--verify", "--strict", image.to_s)
+  ids, err, status = Open3.capture3("/usr/bin/otool", "-D", image.to_s)
+  abort "fixture id differs: #{err}" unless status.success? && ids.lines.drop(1).map(&:strip) == [image_id]
+  image_record = { "path" => "libexec/qilt/0.0.0/libfixture.dylib", "id" => image_id,
+                   "sha256" => Digest::SHA256.file(image).hexdigest }
+end
 rows = []
 Find.find(tree.to_s) do |name|
   next if name == tree.to_s
@@ -71,6 +92,13 @@ replacements = {}
 end
 fixture_formula = replacements.reduce(production_formula) { |text, (source, target)| text.sub(source, target) }
 (tap/"Formula/qilt.rb").write(fixture_formula)
+if mach_o
+  declaration = "  preserve_rpath\n"
+  abort "fixture needs exactly one preserve_rpath declaration" unless fixture_formula.lines.count(declaration) == 1
+  # Both installs use the exact same archive and manifest. This is the sole
+  # formula difference in the negative control.
+  (root/"without-preserve-rpath.rb").write(fixture_formula.sub(declaration, ""))
+end
 commands = [
   ["git", "-C", tap.to_s, "init", "-b", "main"],
   ["git", "-C", tap.to_s, "add", "Formula/qilt.rb"],
@@ -84,6 +112,7 @@ commands.each { |command| abort "fixture git failed" unless system(git_env, *com
   "kind" => "synthetic-homebrew-integration", "native_image_qualified" => false,
   "public_remote_download_qualified" => false, "candidate" => config,
   "url_replacements" => replacements,
+  "mach_o_fixture" => image_record,
   "production_formula_sha256" => Digest::SHA256.hexdigest(production_formula),
   "fixture_formula_sha256" => Digest::SHA256.file(tap/"Formula/qilt.rb").hexdigest
 ) + "\n")
