@@ -1,0 +1,51 @@
+name: Homebrew fixture
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    # One explicit request for this exact head, after its ordinary controls.
+    if: github.event.label.name == format('fixture:{0}', github.event.pull_request.head.sha)
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_ANALYTICS: "1"
+      HOMEBREW_REQUIRE_TAP_TRUST: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Prepare inert archive and local asset URLs
+        run: |
+          test "$(uname -m)" = arm64
+          ruby scripts/homebrew_fixture.rb "$RUNNER_TEMP/qilt-fixture"
+          mkdir -p "$RUNNER_TEMP/qilt-evidence"
+          cp "$RUNNER_TEMP/qilt-fixture/FIXTURE.json" "$RUNNER_TEMP/qilt-evidence/"
+          git rev-parse HEAD > "$RUNNER_TEMP/qilt-evidence/source-head.txt"
+          sw_vers > "$RUNNER_TEMP/qilt-evidence/macos.txt"
+          brew --version > "$RUNNER_TEMP/qilt-evidence/homebrew.txt"
+          git -C "$(brew --repository)" rev-parse HEAD > "$RUNNER_TEMP/qilt-evidence/homebrew-head.txt"
+      - name: Measure the fully qualified local tap install
+        run: |
+          brew tap qilt-ai/qilt "$RUNNER_TEMP/qilt-fixture/tap"
+          brew tap-info --json=v1 qilt-ai/qilt > "$RUNNER_TEMP/qilt-evidence/tap-before.json"
+          brew install qilt-ai/qilt/qilt
+          brew tap-info --json=v1 qilt-ai/qilt > "$RUNNER_TEMP/qilt-evidence/tap-after.json"
+          brew test qilt-ai/qilt/qilt
+          ruby -rpathname -e 'puts Pathname(ARGV.fetch(0)).realpath' "$(brew --prefix qilt-ai/qilt/qilt)" > "$RUNNER_TEMP/qilt-evidence/keg.txt"
+      - name: Verify the installed fixture without crediting native qualification
+        run: |
+          ruby scripts/verify_homebrew_fixture.rb "$RUNNER_TEMP/qilt-fixture" "$RUNNER_TEMP/qilt-evidence/keg.txt" "$RUNNER_TEMP/qilt-evidence/RESULT.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: homebrew-fixture-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/qilt-evidence
+          if-no-files-found: error
