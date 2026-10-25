@@ -145,9 +145,9 @@ end
 class Qilt < Formula
   desc "Local agent messaging"
   homepage "https://github.com/qilt-ai/qilt-releases"
-  RELEASE_VERSION = "0.1.2"
-  TARBALL_SHA256 = "27e995760422d43fec59caedd84f05004cc20de078f26bed01a75fedc6cda3f1"
-  MANIFEST_SHA256 = "fca88564b1beffa58ca1d94f2a6256845ac18510fa2e32e65d4bc1444a2ad54a"
+  RELEASE_VERSION = "0.1.3"
+  TARBALL_SHA256 = "92ef56d30fd7767ead0eff91c305f53f29c2a549f73945b279f8252a38d7c0c9"
+  MANIFEST_SHA256 = "5d3aee211378b4ec4a27f926e41f686ced9e1be8d0873640cf27c4d30a4278a8"
   MACOS_MINIMUM = "26.0"
 
   version RELEASE_VERSION
